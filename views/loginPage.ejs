@@ -8,6 +8,10 @@
 <body>
     <h1>Login to File Uploader</h1>
     <form action="/login" method="post">
+        <% locals.errors && locals.errors.forEach(error => { %>
+            <p style="color: red"><%= error %></p>
+        <% }); %>
+        
         <p>
             <label for="username">Username</label>
             <input type="text" id="username" name="username">

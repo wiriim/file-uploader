@@ -11,6 +11,9 @@
         <p>
             <label for="username">Username</label>
             <input type="text" id="username" name="username">
+            <% if (locals.error) { %>
+                <span style="color: red;"><%= locals.error %></span>
+            <% } %>
         </p>
         <p>
             <label for="password">Password</label>
