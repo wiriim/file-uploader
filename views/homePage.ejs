@@ -16,5 +16,20 @@
                 <a href="/logout">Logout</a>
             <% } %>
         </nav>
+
+        <% if (locals.currentUser) { %>
+            <form action="/upload" method="post" enctype="multipart/form-data">
+                <p>
+                    <label for="file">Input New File: </label>
+                    <input type="file" id="file" name="file">
+                </p>
+                <button>Submit</button>
+            </form>
+        <% } %>
+
+        <% locals.files && locals.files.forEach(file => { %>
+            <div class="file"><%= file.alias %></div>
+            <a href="/download/<%= file.name %>">Download</a>
+        <% }); %>
     </body>
 </html>
