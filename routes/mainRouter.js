@@ -6,11 +6,14 @@ const prisma = require("../lib/prisma");
 
 mainRouter.get("/", async (req, res) => {
     res.locals.currentUser = req.user;
-    const files = await prisma.file.findMany({
-        where: {userId: req.user.id}
-    });
-    console.log(files)
-    res.render("homePage", {files});
+    let files = [];
+    if (req.user) {
+        files = await prisma.file.findMany({
+            where: { userId: req.user.id },
+        });
+    }
+
+    res.render("homePage", { files });
 });
 
 mainRouter.get("/login", (req, res) => {
@@ -40,31 +43,59 @@ mainRouter.get("/logout", authController.logout);
 
 // Files
 const multer = require("multer");
-const upload = multer({ dest: "uploads/" });
-const fs = require('fs');
-const path = require('node:path');
-const http = require('http');
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
+const fs = require("fs");
+const path = require("node:path");
+const http = require("http");
+const { decode } = require("base64-arraybuffer");
+require("dotenv").config();
+const { createClient } = require("@supabase/supabase-js");
+const supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_KEY
+);
 
-mainRouter.post("/upload", upload.single("file"), async (req, res) => {
-    console.log(req.file, req.body);
-    await prisma.file.create({
-        data: {
-            name: req.file.filename,
-            alias: req.file.originalname,
-            user: {
-                connect: { id: req.user.id },
+mainRouter.post("/upload", upload.single("file"), async (req, res, next) => {
+    if (!req.file) {
+        res.status(400).json({ message: "Please upload a file" });
+        return;
+    }
+    const fileBuffer = req.file.buffer;
+    const fileBase64 = decode(fileBuffer.toString("base64"));
+    
+    const { data, error } = await supabase.storage
+        .from("files/" + req.user.username)
+        .upload(
+            req.file.originalname,
+
+            fileBase64,
+            {
+                contentType: req.file.mimetype,
+            }
+        );
+    if (error) {
+        next(error);
+    } else {
+        await prisma.file.create({
+            data: {
+                name: data.path,
+                alias: req.file.originalname,
+                user: {
+                    connect: { id: req.user.id },
+                },
             },
-        },
-    });
-    res.redirect("/");
+        });
+        res.redirect("/");
+    }
 });
 
-mainRouter.get('/download/:file', (req, res) => {
-    const filename = req.params.file;
-    const rootDir = path.dirname(process.argv[1]);
-    const dest = path.join(rootDir, '/uploads', filename);
+mainRouter.get("/download", (req, res) => {
+    const { data } = supabase.storage
+        .from("files/" + req.user.username)
+        .getPublicUrl(req.query.file + '?download=' + req.query.file);
 
-    res.download(dest);
+    res.redirect(data.publicUrl);
 });
 
 module.exports = mainRouter;
